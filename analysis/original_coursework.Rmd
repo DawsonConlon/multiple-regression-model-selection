@@ -1,0 +1,1262 @@
+---
+title: "assignment 1"
+author: "Dawson Conlon"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  #html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(mosaic)
+library(plotly)
+library(olsrr)
+```
+
+# Problem 1
+
+```{r}
+#Load the data
+water=read.csv("https://raw.githubusercontent.com/Thuntida/dataset/refs/heads/main/water.csv")
+
+#Load into a data frame
+water.df = data.frame(water)
+head(water.df)
+```
+
+Y is the USAGE feature and the rest of the variables are the predictors
+
+### 1.1
+
+```{r}
+#Fit the model 
+water.model = lm(USAGE ~ (PROD + TEMP + HOUR + DAYS), data = water.df)
+
+#Get the Coefficients
+coefficients(water.model)
+```
+
+Below is the estimate of the model
+
+$$
+\widehat{USAGE,i}=5.892+0.040𝑋_{PROD,𝑖}+0.169𝑋_{TEMP,𝑖}-0.070𝑋_{HOUR,𝑖}-0.0216𝑋_{DAYS,𝑖}
+$$
+
+Interpretation
+
+When all predictor variables are held constant, monthly water usage is at 5.8916 (gallons/minute)
+
+For a given amount of TEMP and HOUR and DAYS (these are held constant) an increase in 1 unit of amount of production (hundreds of cubic) leads to an increase of 0.0402 gallons/minute of monthly water usage.
+
+For a given amount of PROD and HOUR and DAYS( these are held constant) an increase in 1 unit of average monthly temperature (degrees Celsius) leads to an increase of 0.1687 gallons/minute of monthly water usage
+
+For a given amount of PROD and TEMP and DAYS (these are held constant) an increase in 1 unit of hours shut down for maintenance (hours) leads to an decrease of 0.0710 gallons/minute of monthly water usage.
+
+For a given amount of PROD, TEMP, and HOUR (these are held constant) an increase in 1 unit of number of operating days in a month (days) leads in a decrease of -0.0216 gallons/minute of monthly water usage.
+
+### 1.2
+
+```{r}
+options(scipen = 999)
+
+#get the anova table
+aov(water.model)
+
+#Calc the F-statistic
+fob = (6079.661 / 4) / (763.058 / 244)
+p = 4
+df = 244
+#calc the p value
+1 - (pf(fob, p, df))
+```
+
+$$
+\begin{aligned}
+H_0:\ \beta_1 =\beta_2=\beta_3=\beta_4 = 0: \\ \text{USAGE can not be expressed as a linear function of at least one of the four predictor variables} \\\\
+H_a:\ \text{At least one}\ \beta_i \neq0: \\ \text{USAGE can be expressed as a linear function of at least oneof the four predictor variables}
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+F_{obs} = 486.017 \\\\
+P-value(F_{4,\ 244} \ge486.017) \approx0
+\end{aligned}
+$$
+
+Based on the data above, with a p value that is less than 0.05 one can reject the HO (Monthly water usage can not be expressed as a linear function of at least one of the four predictor variables). This leads one to conclude that monthly water usage can be expressed as a linear function of at least one of the four predictor variables (TEMP, PROD, DAYS, HOUR).
+
+### 1.3
+
+I would not suggest the full model until the predictors have been tested through a individual T-test
+
+Full Model:
+
+$$
+USAGE = \beta_0 + \beta_1X_{PROD,i} + \beta_2X_{TEMP,i}+ \beta_3X_{HOUR,i} + \beta_4X_{DAYS,i} + e_i
+$$
+
+Hypothesis to test if DAYS is statistically irreverent .
+
+$$
+\begin{aligned}
+H0: 𝛽4=0\ (USAGE \ CAN \ NOT \  be \ expressed \ as \ a \ linear \ function \ of \ DAYS)\\
+\\ HA: 𝛽4\neq\ 0\ (USAGE \ CAN  \  be \ expressed \ as \ a \ linear \ function \ of \ DAYS)\\
+\end{aligned}
+$$
+
+```{r}
+#get coefficents for DAYS
+summary(water.model)$coef
+
+#calc tobs
+tob = (-0.02162304 - 0) / (0.032182776)
+
+#calc p-value
+df = 244
+2 * (pt(tob, df)) #tob is negative so no 1 - pt
+
+#get supporting CI 
+confint(water.model)
+```
+
+Below is the P value and test statistic for DAYS
+
+$$
+\begin{aligned}
+T_{obs} = -0.672  \\ 
+P - value = P(F_{244}\le -0.672 ) * 2 = 0.502
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is greater than 0.05 one can fail to reject the HO (DAYS can not be expressed as a linear function of USAGE). This leads one to conclude that DAYS is statistically irreverent and should be excluded from the model.
+
+To further support this conclusion the 95% confidence interval for predictor DAYS is: -0.0850 to 0.0417, this interval captures 0 suggesting DAYS may be statistically irrelevant to the model.
+
+```{r}
+#Make the reduced model
+water.reduced = lm(USAGE ~ (PROD + TEMP + HOUR), water.df)
+
+summary(water.reduced)
+confint(water.reduced)
+```
+
+I will now test the predictors statistical relivance through the individual T test:
+
+PROD: Individual T-test
+
+$$
+\begin{aligned}
+H0: 𝛽1=0\ (USAGE \ CAN \ NOT \  be \ expressed \ as \ a \ linear \ function \ of \ PROD)\\
+\\ HA: 𝛽1\neq\ 0\ (USAGE \ CAN  \  be \ expressed \ as \ a \ linear \ function \ of \ PROD)
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+T_{obs} = 24.741 \\\\
+P-value= P(T_{245}\ge24.741)*2 \approx0
+\end{aligned}
+$$
+
+Based on the data above, with a p-value that is less than 0.05 one can reject the HO (USAGE can not be expressed as a linear function of PROD). This leads one to conlcude that USAGE can be expressed as a linear function of PROD and PROD is statistically relevant to the model. To further support this conclusion the 95% confidience interval of 0.0369 - 0.0433 does not capture 0.
+
+TEMP Individual T-test:
+
+$$
+\begin{aligned}
+H0: 𝛽2=0\ (USAGE \ CAN \ NOT \  be \ expressed \ as \ a \ linear \ function \ of \ TEMP)\\
+\\ HA: 𝛽2\neq\ 0\ (USAGE \ CAN  \  be \ expressed \ as \ a \ linear \ function \ of \ TEMP)
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+T_{obs} = 20.723 \\\\
+P-value= P(T_{245}\ge20.723)*2 \approx0
+\end{aligned}
+$$
+
+Based on the data above, with a p-value that is less than 0.05 one can reject the HO (USAGE can not be expressed as a linear function of TEMP). This leads one to conclude that USAGE can be expressed as a linear function of TEMP and TEMP is statistically relevant to the model. To further support this conclusion the 95% confidence interval of 0.153 - 0.185 does not capture 0.
+
+HOUR Individual T-test:
+
+$$
+\begin{aligned}
+H0: 𝛽3=0\ (USAGE \ CAN \ NOT \  be \ expressed \ as \ a \ linear \ function \ of \ HOUR)\\
+\\ HA: 𝛽3\neq\ 0\ (USAGE \ CAN  \  be \ expressed \ as \ a \ linear \ function \ of \ HOUR)
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+T_{obs} = -4.170   \\\\
+P-value= P(T_{245}\le-4.170  )*2 =0.0000423
+\end{aligned}
+$$
+
+Based on the data above, with a p-value that is less than 0.05 one can reject the HO (USAGE can not be expressed as a linear function of HOUR). This leads one to conclude that USAGE can be expressed as a linear function of HOUR and HOUR is statistically relevant to the model. To further support this conclusion the 95% confidence interval of -0.104 to -0.0373 does not capture 0.
+
+Suggested model:
+
+$$
+USAGE_i = B_0 + \beta_1X_{PROD,i} + \beta_2X_{TEMP,i} + \beta_3X_{HOUR,i} +e_i
+$$
+
+Estimates
+
+$$
+\widehat{USAGE,𝑖}=5.308+0.040𝑋_{PROD,i}+ 0.169X_{TEMP,𝑖} - 0.070𝑋_{HOUR,𝑖}
+$$
+
+$$
+\begin{aligned}
+S_e = 1.766 \\
+Adj\ R_2 = 0.887
+\end{aligned}
+$$
+
+Interpretation of the model estimates
+
+When all predictor variables are held constant, monthly water usage is at 5.3075 (gallons/minute)
+
+For a given amount of TEMP and HOUR (these are held constant) an increase in 1 unit of amount of production (hundreds of cubic) leads to an increase in 0.0401 gallons/minute of monthly water usage.
+
+For a given amount of PROD and HOUR( these are held constant) an increase in 1 unit of average monthly temperature (degrees celsius) leads to an increase of 0.169 gallons/minute of monthly water usage
+
+For a given amount of PROD and TEMP (these are held constant) an increase in 1 unit of hours shut down for maintenance (hours) leads to an decrease of 0.070 gallons/minute of monthly water usage.
+
+### 1.4
+
+I am going to run a partial F test with DAYS feature not in the model
+
+Hypothesis
+
+$$
+\begin{aligned}
+H_0: \ \beta_4 = 0 \ (\text{In the model} \ {USAGE = \beta_0 + \beta_1X_{PROD,i} + \beta_2X_{TEMP,i}+ \beta_3X_{HOUR,i} + \beta_4X_{DAYS,i}}+e_i) \\\\
+H_A: \ \beta_4 \neq 0 \ (\text{In the model} \ {USAGE = \beta_0 + \beta_1X_{PROD,i} + \beta_2X_{TEMP,i}+ \beta_3X_{HOUR,i} + \beta_4X_{DAYS,i}+e_i})
+\end{aligned}
+$$
+
+This is tested against the reduced model below
+
+$$
+USAGE_i = B_0 + \beta_1X_{PROD,i} + \beta_2X_{TEMP,i} + \beta_3X_{HOUR,i} + e_i
+$$
+
+```{r}
+#AOV of the full model
+aov(water.model)
+
+SSE.full = 763.058
+df.full = 244
+
+#AOV of the reduced model
+aov(water.reduced)
+
+SSE.red = 764.470
+df.red = 245
+
+#calc fobs
+fobs = (SSE.red - SSE.full) / (df.red - df.full) / (SSE.full/df.full)
+
+#Calc P-value
+1 - pf(fobs, 1, df.full)
+```
+
+$$
+\begin{aligned}
+F_{obs} = 0.4515\\\\
+P - value = P(F_{1, \ 245} \ge 0.4515 ) = 0.5022
+\end{aligned}
+$$
+
+Final suggested model
+
+$$
+USAGE_i = B_0 + \beta_1X_{PROD,i} + \beta_2X_{TEMP,i} + \beta_3X_{HOUR,i} 
+$$
+
+Based on the data above, with a P-value that is larger than 0.05 one can fail to reject the HO $\beta_4 = 0$, this leads one to conclude that the predictor DAYS is statistically irrelevant and should not be included in the final model.
+
+### 1.5
+
+```{r}
+confint(water.reduced)
+```
+
+Based on the data above while PROD and HOUR are held constant, one can say with 95% confidence that for 1 unit increase in average monthly temperature (degrees Celsius) monthly water usage increases on average somewhere between 0.153 - 0.185 gallons/minute.
+
+### 1.6
+
+```{r}
+#Full Model
+summary(water.model)$adj.r.squared
+summary(water.model)$sigma
+
+#Reduced Model
+summary(water.reduced)$adj.r.squared
+summary(water.reduced)$sigma
+```
+
+$$
+\begin{aligned}
+Full \ Model \\
+R^{2}_{adj} = 0.8867 \ \ \ S_e = 1.768 \\\\
+Reduced \ Model \\
+R^{2}_{adj} = 0.8869 \ \ \ S_e = 1.766 \\
+\end{aligned}
+$$
+
+Interpretation:
+
+The reduced model using the predictors PROD, TEMP and HOUR has the ability to explain 88.69% of the variation in monthly water usage.
+
+The average difference between the observed monthly water usage and the reduced models predicted monthly water usage is around 1.766 gallons/minute.
+
+Based on the data above I would suggest using the reduced model for predictive purposes, this is because the residual standard error is smaller and the adjusted R squared is larger, this mean the reduced model can **with less predictors** explain more of the variation in monthly water usage with less deviation within predictions.
+
+### 1.7
+
+I am going to visualize the relationship between the variables with a 3d plot to get a better understanding of if there is interactions occurring.
+
+```{r}
+#plot_ly(water.df, x = ~PROD, y = ~TEMP, z = ~USAGE, color = "purple", type = "scatter3d")
+
+#plot_ly(water.df, x = ~PROD, y = ~USAGE, z = ~HOUR, color = "purple", type = "scatter3d")
+
+#plot_ly(water.df, x = ~TEMP, y = ~USAGE, z = ~HOUR, color = "purple", type = "scatter3d")
+```
+
+There appears to be a contour to the 3d plot with PROD and TEMP, this indicates that PROD and TEMP may have an interaction.
+
+The 3d plot with HOUR and PROD has a less clear interaction based on the shape of the plot, I will test if there is an interaction between these variables still.
+
+The 3d plot with TEMP and HOUR shows a relative flat plane and I would suspect there is no interaction occurring between these variables, this will still be worth investigating via a individual T-test
+
+```{r}
+#create interaction model that test all interactions
+int.model = lm(USAGE ~ (PROD + TEMP + HOUR)^2, data = water.df)
+summary(int.model)
+
+#CI for full interaction model
+confint(int.model)
+```
+
+$$
+\begin{aligned}
+Fulll \ Interaction \ Model \\
+USAGE_i = \beta_0 + \beta_1X_{PROD,i} + \beta_2X_{TEMP,i} + \beta_3X_{HOUR,i} + \beta_4(X_{PROD,i}X_{TEMP_1}) + \\\beta_5(X_{PROD,i}X_{HOUR,i}) + \beta_6(X_{TEMP,i}X_{HOUR,i}) + e_i
+\end{aligned}
+$$
+
+I will perform a fill model F test to see if USAGE can be expressed as a linear function of at least one of the predictor features
+
+$$
+\begin{aligned}
+H_0: \ \beta_1=\beta_2=\beta3 = \beta4=\beta5=\beta_6 = 0\ \\(\text{USAGE can not be expressed as a linear function of any of the predictor variables}) \\\\
+H_A: \ \beta_1=\beta_2=\beta3 = \beta4=\beta5=\beta_6 \ne 0\ \\(\text{USAGE can be expressed as a linear function of any of at least one of the predictor variables}) 
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+F_{obs} =  1131 \\\\
+P-value = P(F_{6,\ 242}\ge1131) \approx0
+\end{aligned}
+$$
+
+Based on the data above, with a p-value that is less than 0.05 one can reject the HO (USAGE can not be expressed as a linear function of any of the predictor variables). This leads one to conclude that USAGE can be expressed as a linear function of at least one of the six predictor variables.
+
+I am going to perform a individual T-test on each of the interaction terms to test if they are statistically relevant.
+
+PROD:TEMP individual T-test
+
+$$
+\begin{aligned}
+H_0: B_4 = 0\ (\text{USAGE can not be expressed as a linear function of the interaction between PROD * TEMP}) \\\\
+H_A: B_4 \neq 0\ (\text{USAGE can be expressed as a linear function of the interaction between PROD * TEMP})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+T_{obs} = 17.154 \\
+P-Value = P(T_{242}\ge17.154) *2 \ \approx0
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is less than 0.05 one can reject the HO (USAGE can not be expressed as a linear function of the interaction between PROD \* TEMP), this leads one to conclude that USAGE can be expressed as a linear function of the interaction of PROD and TEMP and the interaction is statistically relevant and should stay within the model. This conclusion is further supported with a confidence interval of 0.0010 - 0.0013 that does not capture 0.
+
+PROD:HOUR individual T-test
+
+$$
+\begin{aligned}
+H_0: B_5 = 0\ (\text{USAGE can not be expressed as a linear function of the interaction between PROD * HOUR}) \\
+H_A: B_5 \ \neq 0\ (\text{USAGE can be expressed as a linear function of the interaction between PROD * HOUR})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+T_{obs} = 9.933 \\
+P-Value = P(T_{244}\ge9.933) *2 \ \approx0
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is less than 0.05 one can reject the HO (USAGE can not be expressed as a linear function of the interaction between PROD \* HOUR), this leads one to conclude that USAGE can be expressed as a linear function of the interaction PROD and HOUR and the interaction is statistically relevant and should stay within the model. This conclusion is further supported with a confidence interval of 0.0006 - 0.0009 that does not capture 0.
+
+TEMP:HOUR individual T-test
+
+$$
+\begin{aligned}
+H_0: B_6 = 0\ (\text{USAGE can not be expressed as a linear function of the interaction between TEMP * HOUR}) \\
+H_A: B_6 \ \neq 0\ (\text{USAGE can be expressed as a linear function of the interaction between TEMP * HOUR})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+T_{obs} = 0.989 \\
+P-Value = P(T_{244}\geq0.989) *2 = 0.324
+\end{aligned}
+$$
+
+Based on the data above, with a p-value that is greater than 0.05 one can fail to reject the HO, this leads one to conclude that USAGE can not be expressed as a linear function of the interaction between TEMP an HOUR and the interaction is not statistically relevant and should be dropped from the model. This conclusion is further supported with a confidence interval of -0.0007 to 0.0022 that does capture 0.
+
+Based on the models summary table; of note the individual predictor terms of PROD and TEMP fail the individual T test and both show P values that are larger than 0.05, but because there interactions are significant these variables are kept in the model.
+
+I will now make a reduced interaction model and see if the variables pass the T-test.
+
+```{r}
+#Make reduced interaction model
+int.model2 = lm(USAGE ~ (PROD + TEMP + HOUR + (PROD * TEMP) + (PROD * HOUR)), water.df)
+summary(int.model2)
+
+#CI for reduced interaction model
+confint(int.model2)
+```
+
+$$
+\begin{aligned}
+Reduced \ Interaction \ Model \\
+USAGE_i = \beta_0 + \beta_1X_{PROD,i} + \beta_2X_{TEMP,i} + \beta_3X_{HOUR,i} + \beta_4(X_{PROD,i}X_{TEMP_1}) + \beta_5(X_{PROD,i}X_{HOUR,i}) + e_i
+\end{aligned}
+$$
+
+PROD:TEMP individual T-test
+
+$$
+\begin{aligned}
+H_0: B_4 = 0\ (\text{USAGE can not be expressed as a linear function of ther interaction between PROD * TEMP}) \\\\
+H_A: B_4 \neq 0\ (\text{USAGE can be expressed as a linear function of ther interaction between PROD * TEMP})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+T_{obs} = 22.795 \\
+P-Value = P(T_{243}>=22.795) *2 \approx0
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is less than 0.05 one can reject the HO (USAGE can not be expressed as a linear function of the interaction between PROD \* TEMP), this leads one to conclude that USAGE can be expressed as a linear function of the interaction between PROD and TEMP and the interaction is statistically relevant and should stay within the model. This conclusion is further supported with a confidence interval of 0.0010 - 0.0012 that does not capture 0.
+
+PROD:HOUR individual T-test
+
+$$
+\begin{aligned}
+H_0: B_5 = 0\ (\text{USAGE can not be expressed as a linear function of the interaction between PROD * HOUR}) \\
+H_A: B_5 \ \neq 0\ (\text{USAGE can be expressed as a linear function of the interaction between PROD * HOUR})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+T_{obs} = 10.165 \\
+P-Value = P(T_{243}\ge10.165) *2 \ \approx0
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is less than 0.05 one can reject the HO (USAGE can not be expressed as a linear function of the interaction between PROD \* HOUR), this leads one to conclude that USAGE can be expressed as a linear function of the interaction between PROD and HOUR and the interaction is statistically relevant and should stay within the model. This conclusion is further supported with a confidence interval of 0.0006 - 0.0009 that does not capture 0.
+
+Because the interaction term of PROD \* HOUR and PROD \* TEMP all show statistical relevance in the individual T-test they are justified to stay within the model. The individual predictors of PROD and TEMP show a P-value that is larger than 0.05 under the individual T-test but because there interactions with other variables are statistically relevant they are kept in the final model.
+
+$$
+\begin{aligned}
+Reduced \ Model \\
+R^{2}_{adj} = 0.8869 \ \ \ S_e = 1.766 \\\\
+Reduced \ Interaction \ Model \\
+R^{2}_{adj} = 0.9647 \ \ \ S_e = 0.9866 \\
+\end{aligned}
+$$
+
+The reduced interaction model has the ability to explain 96.47% of the variation in monthly water usage.
+
+In the reduced interaction model, the average difference between the observed monthly water usage and the models predicted monthly water usage is around 0.9866 gallons/minute.
+
+Based on the data above, I would suggest using the reduced interaction model. This is because the models predictors all show statistical relevance under the individual T-test and this model has a smaller residual standard error and adjusted R squared compared to the reduced model in 1.6. This means the reduced interaction model can explain more variation in USAGE with less deviation between predicted and observed values.
+
+Final proposed model:
+
+$$
+\begin{aligned}
+Reduced \ Interaction \ Model \\
+USAGE_i = \beta_0 + \beta_1X_{PROD,i} + \beta_2X_{TEMP,i} + \beta_3X_{HOUR,i} + \beta_4(X_{PROD,i}X_{TEMP_1}) + \beta_5(X_{PROD,i}X_{HOUR,i}) + e_i
+\end{aligned}
+$$
+
+# Problem 2
+
+- 𝑋𝑡𝑦𝑝𝑒_𝑜𝑓_𝑠𝑐ℎ𝑜𝑜𝑙: the type of school (0 - public, 1 - private)
+
+- 𝑋𝑎𝑣𝑒.𝑡𝑜𝑡𝑎𝑙.𝑠𝑎𝑡 - the mean/average SAT (a college/university entrance test) of all students enrolled in the school
+
+- 𝑋𝑟𝑜𝑜𝑚.𝑎𝑛𝑑.𝑏𝑜𝑎𝑟𝑑 - the amount of money a student pays for room and board (in 1000s of USD) per year
+
+- 𝑋𝑎𝑛𝑛.𝑡𝑜𝑡𝑎𝑙.𝑐𝑜𝑠𝑡 - the annual total cost of attending the school (tuition, living expenses, other associated educational costs)
+
+- 𝑌 - the mean/average debt a student attending the school incurs *per year*
+
+```{r}
+#load data
+a1q2.df = read.csv("https://raw.githubusercontent.com/Statman44/Data602/refs/heads/main/univcol.csv")
+head(a1q2.df, 4)
+
+#Put in a data frame 
+student.df = data.frame(a1q2.df)
+
+```
+
+### 2.1
+
+I will use the summary method to get the estimates
+
+```{r}
+#Make model
+student.model = lm(Average.Indebtedness ~ (Annual.Total.Cost +
+                                             Room.and.Board + 
+                                             Average.Total.SAT  ), student.df)
+
+
+summary(student.model)$coef
+```
+
+$$
+\widehat{Average.Indebtedness}_i = 13.944 + 0.434X_{Annual.Total.Cost,i} - 0.130X_{Room.and.Board,i} - 0.007X_{Average.Total.SAT} + e_i
+$$
+
+Interpretation
+
+When all predictor variables are held constant, the mean debt a student incurs per year is at 13.944 (no units reported in the assignment)
+
+For a given amount of Room.and.Board and Average.Total.SAT (these are held constant) an increase in 1 unit of the annual total cost of attending the school (tuition, living expenses, other associated educational costs), leads to an increase in 0.434 of mean debt a student incurs per year.
+
+For a given amount of Annual.Total.Cost and Average.Total.SAT (these are held constant) an increase in 1 unit of the amount of money a student pays for room and board (in \$1000s of USD) per year, leads to decrease of 0.1300 of mean debt a student incurs per year.
+
+For a given amount of Room.and.Board and Annual.Total.Cost (these are held constant) an increase in 1 unit of mean/average SAT (a college/university entrance test) of all students enrolled in the school, leads to decrease of 0.0076 of mean debt a student incurs per year.
+
+### 2.2
+
+```{r}
+aov(student.model)
+```
+
+$$
+SSE = 1135.124
+$$
+
+The total variation that is not explained by the model is 1135.14
+
+### 2.3
+
+```{r}
+#Pull SE from summary
+summary(student.model)$sigma
+```
+
+$$
+S_e = 3.8647
+$$
+
+Interpretation:
+
+The average difference between the observed mean debt a student attending the school incurs per year and the student models predicted mean debt a student attending the school incurs per year is around 3.8647.
+
+### 2.4
+
+```{r}
+summary(student.model)$adj.r.squared
+```
+
+$$
+R^2_{adj} = 0.1744
+$$
+
+Interpretation:
+
+Based on the data above, the student model with its current predictors (Annual.Total.Cost, Room.and.Board, Average.Total.SAT) has the ability to explain 17.44% of the variation in Y (The mean/average debt a student attending the school incurs *per year).*
+
+### 2.5
+
+```{r}
+#get aov table data
+aov(student.model)
+```
+
+$$
+\begin{array}{lccccc}
+{\rm Source\:\:of\:\:Variation}  & \text{Sum of Squares}      &  df   &   \text{Mean Square}   & F_{Obs}  \\
+{\rm Regression}                 &  294.0356                   &  3    & 98.01187               &  98.01187/14.93584 = 6.562193\\
+{\rm Unexplained/Error}          &  1135.1236                   & 80 - 3 - 1 = 76    & 14.93584                &  \\
+\hline
+{\rm Total}                      &  1429.159                 & 80 - 1 = 79    &                        & 
+\end{array}
+$$
+
+I will now perform a full model F-test to see if Average.Indebtness can be expressed as a linear function of at least one of the predictor variables in the current model.
+
+$$
+\begin{aligned}
+H0: 𝛽1=𝛽2=𝛽3=0 \ (Average.Indebtedness \ CAN \ NOT \  be \ expressed \\\ as \ a \ linear \ function \ of \ at \ least \ ONE \ of \ the \ three \ predictors) \\\\
+HA: \text{At least one}\ \beta_i \neq0: \ (Average.Indebtedness \ CAN \ be \ expressed \ \\\ as \ a \ linear \ function \ of \ at \ least \ ONE \ of \ the \ three \ predictors)
+\end{aligned}
+$$
+
+```{r}
+#input variables from the anova table
+fob = 6.562193
+df = 76
+p = 3
+
+#calc p 
+1 - (pf(fob, p, df))
+```
+
+$$
+\begin{aligned}
+F_{obs} = 6.562 \\ 
+P - value = P(F_{3, \ 76} \ge 6.562) = 0.0005272
+\end{aligned}
+$$
+
+Based on the data above, with a P value that is less than 0.05 one can reject the HO ( Average.Indebtness can not be expressed as a linear function of at least on of the three predictors). This leads one to conclude that Average.Indebtness can be expressed as a linear function of at least one of the predictors (ann.total.cost, room.and.board, ave.total.sat).
+
+### 2.6
+
+$$
+\begin{aligned}
+H_0:\ B_1 = 0\ ( An \ increase\ in \ 1000 \ of \ X_{ann.total.cost} \ does\ not \ lead \ to \ an \ increase \ in \ X_{Average.Indebtness}) \\
+H_A: \ B_1 \ >0\ (An \ increase\ in \ 1000 \ of \ X_{ann.total.cost} \ does \ lead \ to \ an \ increase \ in \ X_{Average.Indebtness})
+\end{aligned}
+$$
+
+```{r}
+#grab test stat and df from summary table
+t = 3.106
+df = 76
+
+#calc right tail p value
+2 * (1 - pt(t, df))
+
+```
+
+$$
+\begin{aligned}
+T_{obs} = 3.106 \\
+P-value(T_{76} \ge3.106)*2 = 0.002665575
+\end{aligned}
+$$
+
+Based on the data above ,with a P-value that is less than 0.05 one can reject the HO (For a given Room.and.Board, and Average.Total.SAT, a 1000 dollar increase in Average.Total.Cost does not lead to an increase in mean student debt ). This leads one to conclude that a 1000 dollar increase in Average.Total.Cost does lead to an increase in mean student debt.
+
+### 2.7
+
+I am going to want to perform a individual T test and then compare Se and adjusted R squared between the interaction model and the original model to see if this interaction should be maintained in the model.
+
+Interaction model:
+
+$$
+\begin{aligned}
+Average.Indebtedness,i = \beta_0 + \beta_1X{Annual.Total.Cost,i} + \\\beta_2X{Average.Total.SAT} + \beta_3(X_{Annual.Total.Cost,i}X_{Average.Total.SAT,i})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+H_0: B_3 = 0\ (\text{Average.Indebtedness can not be expressed as a LF of Annual.Total.Cost*Average.Total.SAT }) \\\\
+H_A:  B_3 \ \neq 0\ (\text{Average.Indebtedness can be expressed as a LF of Annual.Total.Cost*Average.Total.SAT })
+\end{aligned}
+$$
+
+```{r}
+#Make interaction model
+student.int = lm(Average.Indebtedness ~ (Annual.Total.Cost + Average.Total.SAT + (Annual.Total.Cost * Average.Total.SAT)), student.df)
+
+#get estimate and std error
+summary(student.int)$coef
+
+#calc tobs
+tob = (-0.001397495 - 0) / (0.0006634881)
+df = 76
+
+#calc p-value
+2 * (pt(tob, df))
+
+#get supporting confidence interval
+confint(student.int)
+```
+
+$$
+\begin{aligned}
+T_{obs} = -2.106  \\
+P-Value = P(T_{76}<=-2.106 ) *2 = < 0.0385
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is less than 0.05 one can reject the HO (Average.Indebtedness can not be expressed as a linear function of the interaction between Annual.Total.Cost\*Average.Total.SAT).
+
+This leads one to conclude that Average.Indebtedness can be expressed as a linear function of the interaction between Annual.Total.Cost:Average.Total.SAT. To further support this conclusion, the confidence interval for the interaction variables Annual.Total.Cost:Average.Total.SAT does not capture 0 (-0.0027 to -0.00007).
+
+Compare key metrics
+
+```{r}
+#full model
+summary(student.model)$sigma
+summary(student.model)$adj.r.squared
+
+#interaction model
+summary(student.int)$sigma
+summary(student.int)$adj.r.squared
+```
+
+$$
+\begin{aligned}
+Original \ Model \\
+S_e = 3.864691 \\
+R^2_{adj} = 0.1743879 \\\\
+Interaction \ Model \\
+S_e = 3.758272 \\
+R^2_{adj} = 0.2192302
+\end{aligned}
+$$
+
+Based on the data above, The interaction model with its current predictors (Annual.Total.Cost, average.Total.SAT, Annual.Total.Cost:Average.Total.SAT) has the ability to explain 21.92% of the variation in Average.Indebtedness. The difference between the observed values in Average.Indebtedness and the interaction models predictions of Average.Indebtedness is on average 3.76. Because of the results of the individual T-test and because the interaction model can explain more of the variation in Average.Indebtedness with less average error in predictions, I would conclude that the interaction term should be considered in the final model.
+
+### 2.8
+
+Because the interaction model has a larger adjusted R squared and smaller RMSE I will use this model.
+
+```{r}
+#make a new df for predictive data
+newdata = data.frame(Annual.Total.Cost = 15.5,
+                     Room.and.Board = 5.5,
+                     Average.Total.SAT = 1310)
+
+predict(student.int, newdata, interval = 'predict', level = 0.95)
+```
+
+Based on the data above, one can say with 95% confidence that for the given parameters (Annual.Total.Cost = 15500, Room.and.Board = 5500, Average.Total.SAT = 1310) student debt is somewhere between 3957.38 - 19916.42 (USD).
+
+### 2.9
+
+```{r}
+#make a new df for predictive data
+newdata = data.frame(Annual.Total.Cost = 14.5,
+                     Room.and.Board = 4.7,
+                     Average.Total.SAT = 1105)
+
+predict(student.int, newdata, interval = 'conf', level = 0.95)
+```
+
+Based on the data above, one can say with 95% confidence that for the given parameters (Annual.Total.Cost = 14500, Room.and.Board = 4700, Average.Total.SAT = 1105) average student debt is somewhere between 10021.7 - 12436.64 USD.
+
+# Problem 3
+
+### 3.1
+
+```{r}
+#load data
+turbine=read.csv("https://raw.githubusercontent.com/Thuntida/dataset/refs/heads/main/TURBINE.csv")
+
+#make data frame
+turbine.df = data.frame(turbine)
+
+#make model to predict heatrate
+turbine.model = lm( HEATRATE~ (RPM + 
+                                 INLET.TEMP + 
+                                 EXH.TEMP + 
+                                 CPRATIO + 
+                                 AIRFLOW ), turbine.df )
+
+summary(turbine.model)$coef
+```
+
+$$
+\begin{aligned}
+HEATRATE_i=B_0+B_1𝑋_{1RPM,i}+ B_2X_{2\ INLET.TEMP,𝑖} + \\ B_3𝑋_{3\ EXH.TEMP,𝑖} + B_4X_{4CPRATIOi} \ B_5X_{5AIRFLOW}  + e_i \\\\
+\widehat{HEATRATE_i}=13614.461+0.0888  𝑋_{1RPM,i}-9.200X_{2\ INLET.TEMP,𝑖} + \\14.394𝑋_{3\ EXH.TEMP,𝑖} + 0.352X_{4CPRATIOi} \ -0.848X_{5AIRFLOW}  + e_i
+\end{aligned}
+$$
+
+### 3.2
+
+Going to perform a full model F-test
+
+$$
+\begin{aligned}
+H0: 𝛽1=𝛽2=𝛽3=𝛽4=𝛽5=0 \ (HEATRATE \ CAN \ NOT \  be \ \\expressed \ as \ a \ linear \ function \ of \ at \ least \ ONE \ of \ these \ five \ predictors) 
+\\\\
+HA: \text{At least one}\ \beta_i \neq0:\ (HEATRATE \ CAN \ be \ \\expressed \ as \ a \ linear \ function \ of \ at \ least \ ONE \ of \ these \ five \ predictors)
+\end{aligned}
+$$
+
+```{r}
+aov(turbine.model)
+#residual data
+SSR = 119598530  +  26893467 +   7784225  +  4623   + 774427
+MSR = SSR / 5
+
+#unexplained data
+SSE = 12841935
+MSE = SSE / 61
+
+#calc FOB
+fob = MSR / MSE
+df = 61
+p = 5
+
+#calc P value
+1 - (pf(fob, p, df))
+```
+
+$$
+\begin{aligned}
+F_{obs} = 147.30 \\ 
+P - value = P(F_{5, \ 61} >= 147.30) \approx 0
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is less than 0.01 one can reject the HO (HEATRATE can not be expressed as a linear function of at least one of the predictor variables). This leads one to conclude that at least one of the predictors can be expressed as a linear function of HEARTRATE.
+
+### 3.3
+
+I will run a individual T-test on CPRATIO and AIRFLOW and then if the model is reduced I will perform a partial F-test.
+
+CPRATIO:
+
+$$
+\begin{aligned}
+H_0: B_{4} = 0\ (HEARTRATE\ can \ not \ be \ expressed \ as \ a \ linear \ function \ of \ CPRATIO) \\
+H_A: B_{4} \neq\  0\ (HEARTRATE\ can \ be \ expressed \ as \ a \ linear \ function \ of \ CPRATIO)
+\end{aligned}
+$$
+
+```{r}
+#get coefficents
+summary(turbine.model)$coef
+
+#calc tobs
+tobs = (0.35190426 - 0) / (29.55567961)
+df = 61
+
+#calc p-value
+2 * (1 - (pt(tobs, df)))
+
+```
+
+$$
+\begin{aligned}
+T_{obs} = 0.012 \\ 
+P - value = P(T_{61} >= 0.012)*2 = 0.990539
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is larger than 0.06 one can fail to reject the HO (HEARTRATE can not be expressed as a linear function of CPRATIO). this leads one to conclude that HEATRATE cannot be expressed as a linear function of CPRATIO and the predictor CPRATIO is statistically irrelevant to the model.
+
+I will Now make a reduced model without CPRATIO and perform a partial F test
+
+Full model:
+
+$$
+HEATRATE_i=B_0+B_1𝑋_{1RPM,i}+ B_2X_{2\ INLET.TEMP,𝑖} + B_3𝑋_{3\ EXH.TEMP,𝑖} + B_4X_{4CPRATIOi} \ B_5X_{5AIRFLOW}  + e_i
+$$
+
+Proposed reduced model:
+
+$$
+HEATRATE_i=B_0+B_1𝑋_{1RPM,i}+ B_2X_{2\ INLET.TEMP,𝑖} + B_3𝑋_{3\ EXH.TEMP,𝑖} +\ B_4X_{4AIRFLOW}  + e_i
+$$
+
+Partial F-test.
+
+$$
+\begin{aligned}
+H_0: \beta_4 = 0\ (\text{In the model}\ HEATRATE_i=B_0+B_1𝑋_{1RPM,i}+ B_2X_{2\ INLET.TEMP,𝑖} + B_3𝑋_{3\ EXH.TEMP,𝑖} + \\
+B_4X_{4CPRATIOi} \ B_5X_{5AIRFLOW}  + e_i \\\\
+H_a: \beta_4 \neq 0\ (\text{In the model}\ HEATRATE_i=B_0+B_1𝑋_{1RPM,i}+ B_2X_{2\ INLET.TEMP,𝑖} + B_3𝑋_{3\ EXH.TEMP,𝑖} + \\ B_4X_{4CPRATIOi} \ B_5X_{5AIRFLOW}  + e_i 
+\end{aligned}
+$$
+
+```{r}
+#make the reduced model
+turbine.red.cpr = lm( HEATRATE~ (RPM + 
+                                   INLET.TEMP + 
+                                   EXH.TEMP + 
+                                   AIRFLOW ), turbine.df )
+
+#reduced model 
+aov(turbine.red.cpr)
+SSE.red = 12841965
+df.red = 62
+
+#full model
+aov(turbine.model)
+SSE.full = 12841935
+df.full = 61
+
+#calc fobs
+fobs = (SSE.red - SSE.full) / (df.red - df.full) / (SSE.full/df.full) #0.0001425019
+
+#calc p value
+1 - (pf(fobs, 1, df.full))
+```
+
+$$
+\begin{aligned}
+F_{obs} = 0.0001425 \\\\
+P-value(F_{61,\ 62}\ge0.0001425) = 0.9905
+\end{aligned}
+$$
+
+Based on the data above with a P value that is larger than 0.06 one can fail to reject the HO $\beta_4 = 0$. This leads one to conclude that $\beta_4 = 0$ and CPRATIO is statistically irrelevant, and should be dropped from the model.
+
+I will now check if the predictor variables in the reduced model are statistically relevant.
+
+$$
+HEATRATE_i=B_0+B_1𝑋_{1RPM,i}+ B_2X_{2\ INLET.TEMP,𝑖} + B_3𝑋_{3\ EXH.TEMP,𝑖} +\ B_4X_{4AIRFLOW}  + e_i
+$$
+
+AIRFLOW individual T-test:
+
+$$
+\begin{aligned}
+H_0: B_{4\ AIRFLOW} = 0\ (HEARTRATE\ can \ not \ be \ expressed \ as \ a \ linear \ function \ of \ AIRFLOW) \\
+H_A: B_{4\ AIRFLOW} \ne\  0\ (HEARTRATE\ can \ be \ expressed \ as \ a \ linear \ function \ of \ AIRFLOW)
+\end{aligned}
+$$
+
+```{r}
+#get coefficents
+summary(turbine.red.cpr)$coef
+
+#calc tobs
+tobs = ( -0.84752034 - 0) / (0.43701419)
+df = 62
+
+#calc p-vlaue
+2 * (pt(tobs, df))
+```
+
+$$
+\begin{aligned}
+T_{obs} = -1.939  \\ \\
+P - value\ = P(T_{62} \le -1.939 )*2 = 0.0570
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is smaller than 0.06 (or equal to if rounding) one can reject the HO (HEARTRATE can not be expressed as a linear function of AIRFLOW). This leads one to conclude that HEARTRATE can be expressed as a linear function of AIRFLOW and the predictor AIRFLOW is statistically relevant to the model.
+
+RPM individual T-test:
+
+$$
+\begin{aligned}
+H_0: B_{1\ RPM} = 0\ (HEARTRATE\ can \ not \ be \ expressed \ as \ a \ linear \ function \ of \ RPM) \\
+H_A:B_{1\ RPM} \ne\  0\ (HEARTRATE\ can \ be \ expressed \ as \ a \ linear \ function \ of \ RPM)
+\end{aligned}
+$$
+
+```{r}
+#get coefficents
+summary(turbine.red.cpr)$coef
+
+#calc tobs
+tobs = ( 0.08882334 - 0) / (0.01344256)
+df = 62
+
+#calc p-vlaue
+2 * (1 - (pt(tobs, df)))
+```
+
+$$
+\begin{aligned}
+T_{obs} = 6.608  \\ \\
+P - value\ = P(T_{62} \ge 6.608 )*2 = 0.00000001
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is smaller than 0.06, one can reject the HO (HEARTRATE can not be expressed as a linear function of RPM). This leads one to conclude that HEARTRATE can be expressed as a linear function of RPM and the predictor RPM is statistically relevant to the model.
+
+INLET.TEMP individual T test:
+
+$$
+\begin{aligned}
+H_0: B_{2\ INLET.TEMP } = 0\ (HEARTRATE\ can \ not \ be \ expressed \ as \ a \ linear \ function \ of \ INLET.TEMP ) \\
+H_A: B_{2\ INLET.TEMP } \ne\  0\ (HEARTRATE\ can \ be \ expressed \ as \ a \ linear \ function \ of \ INLET.TEMP )
+\end{aligned}
+$$
+
+```{r}
+#get coefficents
+summary(turbine.red.cpr)$coef
+
+#calc tobs
+tobs = ( -9.18560522  - 0) / (0.77039672)
+df = 62
+
+#calc p-vlaue
+2 * (pt(tobs, df))
+```
+
+$$
+\begin{aligned}
+T_{obs} = -11.923   \\ \\
+P - value\ = P(T_{62} \le -11.923  )*2 = 0.00000000000000001
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is smaller than 0.06, one can reject the HO (HEARTRATE can not be expressed as a linear function of INLET.TEMP). This leads one to conclude that HEARTRATE can be expressed as a linear function of INLET.TEMP and the predictor INLET.TEMP is statistically relevant to the model.
+
+EXH.TEMP individual T-test:
+
+$$
+\begin{aligned}
+H_0: B_{3\ EXH.TEMP   } = 0\ (HEARTRATE\ can \ not \ be \ expressed \ as \ a \ linear \ function \ of \ EXH.TEMP   ) \\
+H_A: B_{3\ EXH.TEMP  .TEMP } \ne\  0\ (HEARTRATE\ can \ be \ expressed \ as \ a \ linear \ function \ of \ EXH.TEMP   )
+\end{aligned}
+$$
+
+```{r}
+#get coefficents
+summary(turbine.red.cpr)$coef
+
+#calc tobs
+tobs = ( 14.36283051  - 0) / (2.25963132)
+df = 62
+
+#calc p-vlaue
+2 * (1-(pt(tobs, df)))
+```
+
+$$
+\begin{aligned}
+T_{obs} = 6.356   \\ \\
+P - value\ = P(T_{62} \ge 6.356  )*2 = 0.0000000275
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is smaller than 0.06, one can reject the HO (HEARTRATE can not be expressed as a linear function of EXH.TEMP). This leads one to conclude that HEARTRATE can be expressed as a linear function of EXH.TEMP and the predictor EXH.TEMP is statistically relevant to the model.
+
+Based on the results of the reduced models individual T test the final proposed reduced model is below.
+
+Final Proposed reduced model
+
+$$
+\begin{aligned}
+HEATRATE_i=B_0+B_1𝑋_{1RPM,i}+ B_2X_{2\ INLET.TEMP,𝑖} + \\ B_3𝑋_{3\ EXH.TEMP,𝑖} +\ B_4X_{4AIRFLOW}  + e_i \\\\
+\widehat{HEATRATE_i}=13617.924+0.089𝑋_{1RPM,i}-9.19 X_{2\ INLET.TEMP,𝑖} + 14.363 \\𝑋_{3\ EXH.TEMP,𝑖} +\ -0.84752 X_{4AIRFLOW}  + e_i
+\end{aligned}
+$$
+
+### 3.4
+
+I am going to perform backwards elimination to test all possible interactions and there significance on the reduced model from 3.3
+
+```{r}
+#make reduced model with all possible interactions 
+back.int.turbine = lm(HEATRATE ~ (RPM + INLET.TEMP  + EXH.TEMP  + AIRFLOW)^2, turbine.df)
+
+#set up test
+step_mod.back.int = ols_step_backward_p(back.int.turbine, p_val = 0.06, details=TRUE) 
+
+#get summary of model
+summary(step_mod.back.int$model)
+
+#make proposed model
+turbine.int = lm(HEATRATE ~ (RPM + INLET.TEMP + EXH.TEMP + AIRFLOW + (INLET.TEMP*AIRFLOW ) + (EXH.TEMP*AIRFLOW)), turbine.df)
+```
+
+Proposed interaction model
+
+$$
+\begin{aligned}
+{HEATRATE}=\beta_0+\beta_1𝑋_{1RPM,𝑖} + \beta_2X_{2, INLET.TEMP ,𝑖}+ \\ beta_3X_{3, EXH.TEMP  ,𝑖}+ \beta_4𝑋_{4AIRFLOW,𝑖} + \beta_5X_{5INLET.TEMP:AIRFLOW ,i} +\beta_6X_{6EXH.TEMP:AIRFLOW,i} + e_i
+\end{aligned}
+$$
+
+I will perform a full model F-test to see if HEATRATE can be expressed as a linear function of at least one of the predictor variables.
+
+$$
+\begin{aligned}
+H_0: \ \beta_1=\beta_2=\beta3 = \beta4=\beta5=\beta_6 = 0\ \\(\text{HEATRATE can not be expressed as a linear funtion of any of the predictor variables}) \\\\
+H_A: \ \beta_1=\beta_2=\beta3 = \beta4=\beta5=\beta_6 \ne 0\ \\(\text{HEATRATE can be expressed as a linear funtion of at least one of the predictor variables}) 
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+F_{obs} = 163.7 \\\\
+P-value = P(F_{6,60}\ge163.7) \approx0
+\end{aligned}
+$$
+
+With a P-value that is less than 0.06 one can reject the HO (HEATRATE can not be expressed as a linear funtion of any of the predictor variables). This leads one to conclude that HEATRATE can be expressed as a linear function of at least one of the six predictor variables (RPM, INLET.TEMP, EXH.TEMP, AIRFLOW, INLET.TEMP:AIRFLOW, EXH.TEMP:AIRFLOW ).
+
+I am now going to perform individual T test to test if the individual predictors are statistically relevant, after this I will be able to propose a final model.
+
+EXH.TEMP:AIRFLOW T-test:
+
+$$
+\begin{aligned}
+H_0: \beta_6 =0\ (\text{HEATRATE can not be exppressed as a linear function of EXH.TEMP:AIRFLOW}) \\\\
+H_A: \beta_6 \ne0\ (\text{HEATRATE can  be exppressed as a linear function of EXH.TEMP:AIRFLOW})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+T_{obs} = -3.816  \\\\
+P-value = P(T_{60}\le-3.816) = 0.000323
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is less than 0.06 one can reject the HO (HEATRATE can not be expressed as a linear function of EXH.TEMP:AIRFLOW). This leads one to conclude that HEATRATE can be expressed as a linear function of EXH.TEMP:AIRFLOW and the interaction term is statistically relevant.
+
+INLET.TEMP:AIRFLOW T-test:
+
+$$
+\begin{aligned}
+H_0: \beta_5 =0\ (\text{HEATRATE can not be exppressed as a linear function of INLET.TEMP:AIRFLOW }) \\\\
+H_A: \beta_5 \ne0\ (\text{HEATRATE can  be exppressed as a linear function of INLET.TEMP:AIRFLOW })
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+T_{obs} = 4.432  \\\\
+P-value = P(T_{60}\ge4.432) = 0.0000402
+\end{aligned}
+$$
+
+Based on the data above, with a P-value that is less than 0.06 one can reject the HO (HEATRATE can not be expressed as a linear function of INLET.TEMP:AIRFLOW). This leads one to conclude that HEATRATE can be expressed as a linear function of INLET.TEMP:AIRFLOW and the interaction term is statistically relevant.
+
+RPM T-test:
+
+$$
+\begin{aligned}
+H_0: \beta_1 =0\ (\text{HEATRATE can not be exppressed as a linear function of RPM }) \\\\
+H_A: \beta_1 \ne0\ (\text{HEATRATE can  be exppressed as a linear function of RPM})
+\end{aligned}
+$$
+
+$$
+T_{obs} = 2.902  \\\\
+P-value = P(T_{60}\ge2.902) = 0.005174
+$$
+
+Based on the data above, with a P-value that is less than 0.06 one can reject the HO (HEATRATE can not be expressed as a linear function of RPM). This leads one to conclude that HEATRATE can be expressed as a linear function of RPM and the interaction term is statistically relevant.
+
+The individual predictors of INLET.TEMP, EXH.TEMP and AIRFLOW do not have to be analyzed in the individual T test as there interaction terms are deemed statistically relevant, so those individual predictors will be maintained in the model.
+
+What model I would suggest for predicting:
+
+$$
+\begin{aligned}
+{HEATRATE}=\beta_0+\beta_1𝑋_{1RPM,𝑖} + \beta_2X_{2, INLET.TEMP ,𝑖}+ \beta_3X_{3, EXH.TEMP  ,𝑖}+ \\ \beta_4𝑋_{4AIRFLOW,𝑖} + \beta_5X_{5INLET.TEMP:AIRFLOW ,i} +\beta_6X_{6EXH.TEMP:AIRFLOW,i} + e_i 
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+S_e = 401.4 \\\\
+R^2_{asj} = 0.9367
+\end{aligned}
+$$
+
+I would suggest the final interaction model above for predicting purposes. What led me to this conclusion was as follows
+
+The model shows that all the predictors are statistically relevant in relation to HEATRATE. What finally led me to this conclusion is compared to the reduced model, the interaction model has a smaller residual standard error and a larger adjusted R squared. This means the interaction model can explain more variation in HEATRATE with less average deviation in predictions compared to the reduced model.
+
+### 3.5
+
+```{r}
+summary(turbine.int)$coef
+```
+
+$$
+\begin{aligned}
+\widehat{HEATRATE}=13603.30+0.0452𝑋_{RPM,𝑖} - 12.79𝑋_{INLET.TEMP ,𝑖}+ 23.27𝑋_{EXH.TEMP,𝑖}+ 1.34𝑋_{AIRFLOW,𝑖} + \\\\0.016X_{INLET.TEMP:AIRFLOW ,i} - 0.041X_{EXH.TEMP:AIRFLOW,i} + e_i
+\end{aligned}
+$$
+
+Interpretation
+
+When all predictor variables are held constant, HEATRATE is at 13603.30 (kilojoules per kilowatt per hour)
+
+When all other predictors are held constant, an increase in 1 unit of RPM (revolutions per minute) leads to an increase of 0.045 kilojoules per kilowatt per hour of HEATRATE
+
+When all other predictors are held constant, an increase in 1 unit of INLET.TEMP (degrees Celsius) leads to an decrease of 12.79 kilojoules per kilowatt per hour of HEATRATE
+
+When all other predictors are held constant, an increase in 1 unit of EXH.TEMP (degrees Celsius) leads to an increase of 23.27 kilojoules per kilowatt per hour of HEATRATE
+
+When all other predictors are held constant, an increase in 1 unit of AIRFLOW (kilograms per second)) leads to an increase of 1.34 kilojoules per kilowatt per hour of HEATRATE
+
+When all other predictors are held constant, an increase in 1 unit of the interaction between INLET.TEMP (degrees Celsius) and AIRFLOW (kilograms per second) leads to an increase of 0.016 kilojoules per kilowatt per hour of HEATRATE
+
+When all other predictors are held constant, an increase in 1 unit of the interaction between EXH.TEMP (degrees Celsius) and AIRFLOW (kilograms per second) leads to an decrease of 0.041 kilojoules per kilowatt per hour of HEATRATE
+
+### 3.6
+
+```{r}
+summary(turbine.int)$sigma
+```
+
+$$
+S_e = 401.35
+$$
+
+The average difference between the observed values of heat rate and what the interaction model predicts for heat rate is 401.35 kilojoules per kilowatt per hour.
+
+### 3.7
+
+```{r}
+summary(turbine.int)$adj.r.squared
+```
+
+$$
+R^2_{adj} = 0.9366
+$$
+
+Based on the data above, the interaction model with its current predictor features (RPM, INLET.TEMP, EXH.TEMP, AIRFLOW, INLET.TEMP:AIRFLOW, EXH.TEMP:AIRFLOW) has the ability to explain 93.66% of the variation in HEATRATE.
+
+### 3.8
+
+```{r}
+#make df with parameters
+newdata = data.frame(
+  RPM = 273145,
+  INLET.TEMP = 1240,
+  EXH.TEMP = 920,
+  CPRATIO = 10,
+  AIRFLOW = 25
+)
+
+predict(turbine.int, newdata, interval = 'predict', level = 0.95 )
+```
+
+Based on the data above, when the following predictors are RPM = 273145, INLET.TEMP = 1240, EXH.TEMP = 920, CPRATIO = 10 and AIRFLOW = 25, HEATRATE will be somewhere between 24067.74 kilojoules per kilowatt per hour - 38388.2 kilojoules per kilowatt per hour.

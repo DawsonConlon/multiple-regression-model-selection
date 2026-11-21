@@ -1,0 +1,9 @@
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+.DS_Store
+analysis/*.pdf
+analysis/*.html
+analysis/*_files/
+analysis/*.tex
